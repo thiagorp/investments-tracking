@@ -24,7 +24,7 @@ assetsBalanceSpec =
     it "works with a single deposit" $ do
       let ledger =
             startLedger
-              & deposit usd (AssetPrice 1) 1000
+              & deposit usd (price 1) (amount 1000)
 
       let balance = assetsBalance ledger
 
@@ -33,9 +33,9 @@ assetsBalanceSpec =
     it "works with multiple deposits of the same currency" $ do
       let ledger =
             startLedger
-              & deposit usd (AssetPrice 1) 1000
-              & deposit usd (AssetPrice 1) 1500
-              & deposit usd (AssetPrice 1) 700
+              & deposit usd (price 1) (amount 1000)
+              & deposit usd (price 1) (amount 1500)
+              & deposit usd (price 1) (amount 700)
 
       let balance = assetsBalance ledger
 
@@ -44,8 +44,8 @@ assetsBalanceSpec =
     it "works with multiple currencies" $ do
       let ledger =
             startLedger
-              & deposit usd (AssetPrice 1) 1000
-              & deposit cad (AssetPrice 1) 1500
+              & deposit usd (price 1) (amount 1000)
+              & deposit cad (price 1) (amount 1500)
 
       let balance = assetsBalance ledger
 
@@ -54,10 +54,10 @@ assetsBalanceSpec =
     it "works with deposits, trades and withdrawals" $ do
       let ledger =
             startLedger
-              & deposit usd (AssetPrice 1) 1000
-              & deposit usd (AssetPrice 1) 1500
-              & trade usd btc (AssetPrice 1000) 1.2 0
-              & deposit cad (AssetPrice 0.8) 500
+              & deposit usd (price 1) (amount 1000)
+              & deposit usd (price 1) (amount 1500)
+              & trade usd btc (price 1000) (amount 1.2) (fee 0)
+              & deposit cad (price 0.8) (amount 500)
 
       let balance = assetsBalance ledger
 
@@ -66,8 +66,8 @@ assetsBalanceSpec =
     it "withdraws the trade fee directly from the base asset" $ do
       let ledger =
             startLedger
-              & deposit usd (AssetPrice 1) 1000
-              & trade usd btc (AssetPrice 500) 1 10
+              & deposit usd (price 1) (amount 1000)
+              & trade usd btc (price 500) (amount 1) (fee 10)
 
       let balance = assetsBalance ledger
 
@@ -76,10 +76,10 @@ assetsBalanceSpec =
     it "adds dividends to the amount of its assets" $ do
       let ledger =
             startLedger
-              & deposit usd (AssetPrice 1) 1000
-              & deposit usd (AssetPrice 1) 5000
-              & trade usd btc (AssetPrice 500) 1 10
-              & receiveDividend btc 0.01
+              & deposit usd (price 1) (amount 1000)
+              & deposit usd (price 1) (amount 5000)
+              & trade usd btc (price 500) (amount 1) (fee 10)
+              & receiveDividend btc (amount 0.01)
 
       let balance = assetsBalance ledger
 

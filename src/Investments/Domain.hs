@@ -2,15 +2,18 @@
 
 module Investments.Domain (
   Asset (..),
-  AssetPrice (..),
-  startLedger,
   -- Actions
+  startLedger,
   deposit,
   withdraw,
   trade,
   receiveDividend,
   -- Query
   assetsBalance,
+  -- Util
+  amount,
+  fee,
+  price,
 ) where
 
 import Import
@@ -18,19 +21,36 @@ import RIO.Map qualified as Map
 
 newtype Asset = Asset Text deriving (Show, Eq, Ord)
 newtype AssetPrice = AssetPrice Rational deriving (Show, Eq)
+newtype AssetAmount = AssetAmount Rational deriving (Show, Eq)
+newtype Fee = Fee Rational deriving (Show, Eq)
+
+amount :: Rational -> AssetAmount
+amount = AssetAmount
+
+price :: Rational -> AssetPrice
+price = AssetPrice
+
+fee :: Rational -> Fee
+fee = Fee
+
+unAssetAmount :: AssetAmount -> Rational
+unAssetAmount (AssetAmount assetAmount) = assetAmount
 
 unAssetPrice :: AssetPrice -> Rational
-unAssetPrice (AssetPrice price) = price
+unAssetPrice (AssetPrice p) = p
+
+unFee :: Fee -> Rational
+unFee (Fee f) = f
 
 data Deposit = Deposit
-  { depositAmount :: Rational
+  { depositAmount :: AssetAmount
   , depositAsset :: Asset
   , depositAssetPrice :: AssetPrice
   }
   deriving (Show, Eq)
 
 data Withdraw = Withdraw
-  { withdrawAmount :: Rational
+  { withdrawAmount :: AssetAmount
   , withdrawAsset :: Asset
   , withdrawAssetPrice :: AssetPrice
   }
@@ -40,14 +60,14 @@ data Trade = Trade
   { tradeBaseAsset :: Asset
   , tradeBoughtAsset :: Asset
   , tradeAssetPrice :: AssetPrice
-  , tradeAmount :: Rational
-  , tradeFee :: Rational
+  , tradeAmount :: AssetAmount
+  , tradeFee :: Fee
   }
   deriving (Show, Eq)
 
 data Dividend = Dividend
   { dividendAsset :: Asset
-  , dividendAmount :: Rational
+  , dividendAmount :: AssetAmount
   }
   deriving (Show, Eq)
 
@@ -66,36 +86,36 @@ newtype Ledger = Ledger [LedgerEntry]
 startLedger :: Ledger
 startLedger = Ledger []
 
-deposit :: Asset -> AssetPrice -> Rational -> Ledger -> Ledger
+deposit :: Asset -> AssetPrice -> AssetAmount -> Ledger -> Ledger
 deposit depositAsset depositAssetPrice depositAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerDeposit $ Deposit{..}]
 
-withdraw :: Asset -> AssetPrice -> Rational -> Ledger -> Ledger
+withdraw :: Asset -> AssetPrice -> AssetAmount -> Ledger -> Ledger
 withdraw withdrawAsset withdrawAssetPrice withdrawAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerWithdraw $ Withdraw{..}]
 
-trade :: Asset -> Asset -> AssetPrice -> Rational -> Rational -> Ledger -> Ledger
+trade :: Asset -> Asset -> AssetPrice -> AssetAmount -> Fee -> Ledger -> Ledger
 trade tradeBaseAsset tradeBoughtAsset tradeAssetPrice tradeAmount tradeFee (Ledger entries) =
   Ledger $ entries ++ [LedgerTrade $ Trade{..}]
 
-receiveDividend :: Asset -> Rational -> Ledger -> Ledger
+receiveDividend :: Asset -> AssetAmount -> Ledger -> Ledger
 receiveDividend dividendAsset dividendAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerDividend $ Dividend{..}]
 
 assetsBalance :: Ledger -> Map Asset Rational
 assetsBalance (Ledger entries) = foldl' (flip updateBalances) Map.empty entries
  where
-  updateBalances (LedgerDeposit (Deposit{..})) = addAmountToAsset depositAmount depositAsset
-  updateBalances (LedgerWithdraw (Withdraw{..})) = subAmountFromAsset withdrawAmount withdrawAsset
+  updateBalances (LedgerDeposit (Deposit{..})) = addAmountToAsset (unAssetAmount depositAmount) depositAsset
+  updateBalances (LedgerWithdraw (Withdraw{..})) = subAmountFromAsset (unAssetAmount withdrawAmount) withdrawAsset
   updateBalances (LedgerTrade (Trade{..})) =
-    addAmountToAsset tradeAmount tradeBoughtAsset
-      . subAmountFromAsset (tradeAmount * unAssetPrice tradeAssetPrice + tradeFee) tradeBaseAsset
-  updateBalances (LedgerDividend (Dividend{..})) = addAmountToAsset dividendAmount dividendAsset
+    addAmountToAsset (unAssetAmount tradeAmount) tradeBoughtAsset
+      . subAmountFromAsset (unAssetAmount tradeAmount * unAssetPrice tradeAssetPrice + unFee tradeFee) tradeBaseAsset
+  updateBalances (LedgerDividend (Dividend{..})) = addAmountToAsset (unAssetAmount dividendAmount) dividendAsset
 
   addAmountToAsset :: Rational -> Asset -> Map Asset Rational -> Map Asset Rational
-  addAmountToAsset amount = Map.alter $ alterFn (+) amount
+  addAmountToAsset amounToAdd = Map.alter $ alterFn (+) amounToAdd
 
   subAmountFromAsset :: Rational -> Asset -> Map Asset Rational -> Map Asset Rational
-  subAmountFromAsset amount = Map.alter $ alterFn (-) amount
+  subAmountFromAsset amountToSub = Map.alter $ alterFn (-) amountToSub
 
-  alterFn fn amount = Just . flip fn amount . fromMaybe 0
+  alterFn fn amountToChange = Just . flip fn amountToChange . fromMaybe 0
