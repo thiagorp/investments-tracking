@@ -45,7 +45,6 @@ unFee (Fee f) = f
 data Deposit = Deposit
   { depositAmount :: AssetAmount
   , depositAsset :: Asset
-  , depositAssetPrice :: AssetPrice
   }
   deriving (Show, Eq)
 
@@ -86,8 +85,8 @@ newtype Ledger = Ledger [LedgerEntry]
 startLedger :: Ledger
 startLedger = Ledger []
 
-deposit :: Asset -> AssetPrice -> AssetAmount -> Ledger -> Ledger
-deposit depositAsset depositAssetPrice depositAmount (Ledger entries) =
+deposit :: Asset -> AssetAmount -> Ledger -> Ledger
+deposit depositAsset depositAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerDeposit $ Deposit{..}]
 
 withdraw :: Asset -> AssetPrice -> AssetAmount -> Ledger -> Ledger
