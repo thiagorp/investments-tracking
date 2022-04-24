@@ -23,4 +23,4 @@ cabal.project.local~
 .direnv/
 .ghc.environment.*
 *.cabal
-.pre-commit-config.yml
+.pre-commit-config.yaml
