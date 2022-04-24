@@ -12,8 +12,10 @@ module Investments.Domain (
   assetsBalance,
   -- Util
   amount,
+  bought,
   fee,
   price,
+  sold,
 ) where
 
 import Import
@@ -22,16 +24,24 @@ import RIO.Map qualified as Map
 newtype Asset = Asset Text deriving (Show, Eq, Ord)
 newtype AssetPrice = AssetPrice Rational deriving (Show, Eq)
 newtype AssetAmount = AssetAmount Rational deriving (Show, Eq)
+newtype BoughtAsset = BoughtAsset Asset deriving (Show, Eq)
 newtype Fee = Fee Rational deriving (Show, Eq)
+newtype SoldAsset = SoldAsset Asset deriving (Show, Eq)
 
 amount :: Rational -> AssetAmount
 amount = AssetAmount
+
+bought :: Asset -> BoughtAsset
+bought = BoughtAsset
 
 price :: Rational -> AssetPrice
 price = AssetPrice
 
 fee :: Rational -> Fee
 fee = Fee
+
+sold :: Asset -> SoldAsset
+sold = SoldAsset
 
 unAssetAmount :: AssetAmount -> Rational
 unAssetAmount (AssetAmount assetAmount) = assetAmount
@@ -56,7 +66,7 @@ data Withdraw = Withdraw
   deriving (Show, Eq)
 
 data Trade = Trade
-  { tradeBaseAsset :: Asset
+  { tradeSoldAsset :: Asset
   , tradeBoughtAsset :: Asset
   , tradeAssetPrice :: AssetPrice
   , tradeAmount :: AssetAmount
@@ -93,8 +103,8 @@ withdraw :: Asset -> AssetPrice -> AssetAmount -> Ledger -> Ledger
 withdraw withdrawAsset withdrawAssetPrice withdrawAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerWithdraw $ Withdraw{..}]
 
-trade :: Asset -> Asset -> AssetPrice -> AssetAmount -> Fee -> Ledger -> Ledger
-trade tradeBaseAsset tradeBoughtAsset tradeAssetPrice tradeAmount tradeFee (Ledger entries) =
+trade :: SoldAsset -> BoughtAsset -> AssetPrice -> AssetAmount -> Fee -> Ledger -> Ledger
+trade (SoldAsset tradeSoldAsset) (BoughtAsset tradeBoughtAsset) tradeAssetPrice tradeAmount tradeFee (Ledger entries) =
   Ledger $ entries ++ [LedgerTrade $ Trade{..}]
 
 receiveDividend :: Asset -> AssetAmount -> Ledger -> Ledger
@@ -108,7 +118,7 @@ assetsBalance (Ledger entries) = foldl' (flip updateBalances) Map.empty entries
   updateBalances (LedgerWithdraw (Withdraw{..})) = subAmountFromAsset (unAssetAmount withdrawAmount) withdrawAsset
   updateBalances (LedgerTrade (Trade{..})) =
     addAmountToAsset (unAssetAmount tradeAmount) tradeBoughtAsset
-      . subAmountFromAsset (unAssetAmount tradeAmount * unAssetPrice tradeAssetPrice + unFee tradeFee) tradeBaseAsset
+      . subAmountFromAsset (unAssetAmount tradeAmount * unAssetPrice tradeAssetPrice + unFee tradeFee) tradeSoldAsset
   updateBalances (LedgerDividend (Dividend{..})) = addAmountToAsset (unAssetAmount dividendAmount) dividendAsset
 
   addAmountToAsset :: Rational -> Asset -> Map Asset Rational -> Map Asset Rational

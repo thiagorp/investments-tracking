@@ -56,7 +56,7 @@ assetsBalanceSpec =
             startLedger
               & deposit usd (amount 1000)
               & deposit usd (amount 1500)
-              & trade usd btc (price 1000) (amount 1.2) (fee 0)
+              & trade (sold usd) (bought btc) (price 1000) (amount 1.2) (fee 0)
               & deposit cad (amount 500)
 
       let balance = assetsBalance ledger
@@ -67,7 +67,7 @@ assetsBalanceSpec =
       let ledger =
             startLedger
               & deposit usd (amount 1000)
-              & trade usd btc (price 500) (amount 1) (fee 10)
+              & trade (sold usd) (bought btc) (price 500) (amount 1) (fee 10)
 
       let balance = assetsBalance ledger
 
@@ -78,7 +78,7 @@ assetsBalanceSpec =
             startLedger
               & deposit usd (amount 1000)
               & deposit usd (amount 5000)
-              & trade usd btc (price 500) (amount 1) (fee 10)
+              & trade (sold usd) (bought btc) (price 500) (amount 1) (fee 10)
               & receiveDividend btc (amount 0.01)
 
       let balance = assetsBalance ledger
