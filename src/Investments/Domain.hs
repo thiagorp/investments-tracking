@@ -8,6 +8,7 @@ module Investments.Domain (
   deposit,
   withdraw,
   trade,
+  receiveDividend,
   -- Query
   assetsBalance,
 ) where
@@ -44,10 +45,17 @@ data Trade = Trade
   }
   deriving (Show, Eq)
 
+data Dividend = Dividend
+  { dividendAsset :: Asset
+  , dividendAmount :: Rational
+  }
+  deriving (Show, Eq)
+
 data LedgerEntry
   = LedgerDeposit Deposit
   | LedgerTrade Trade
   | LedgerWithdraw Withdraw
+  | LedgerDividend Dividend
   deriving (Show, Eq)
 
 newtype Ledger = Ledger [LedgerEntry]
@@ -59,49 +67,35 @@ startLedger :: Ledger
 startLedger = Ledger []
 
 deposit :: Asset -> AssetPrice -> Rational -> Ledger -> Ledger
-deposit asset assetPrice amount (Ledger entries) = Ledger $ entries ++ [depositEntry]
- where
-  depositEntry =
-    LedgerDeposit $
-      Deposit
-        { depositAmount = amount
-        , depositAsset = asset
-        , depositAssetPrice = assetPrice
-        }
+deposit depositAsset depositAssetPrice depositAmount (Ledger entries) =
+  Ledger $ entries ++ [LedgerDeposit $ Deposit{..}]
 
 withdraw :: Asset -> AssetPrice -> Rational -> Ledger -> Ledger
-withdraw asset assetPrice amount (Ledger entries) = Ledger $ entries ++ [withdrawEntry]
- where
-  withdrawEntry =
-    LedgerWithdraw $
-      Withdraw
-        { withdrawAmount = amount
-        , withdrawAsset = asset
-        , withdrawAssetPrice = assetPrice
-        }
+withdraw withdrawAsset withdrawAssetPrice withdrawAmount (Ledger entries) =
+  Ledger $ entries ++ [LedgerWithdraw $ Withdraw{..}]
 
 trade :: Asset -> Asset -> AssetPrice -> Rational -> Rational -> Ledger -> Ledger
-trade baseAsset boughtAsset assetPrice amount fee (Ledger entries) = Ledger $ entries ++ [tradeEntry]
- where
-  tradeEntry =
-    LedgerTrade $
-      Trade
-        { tradeBaseAsset = baseAsset
-        , tradeBoughtAsset = boughtAsset
-        , tradeAssetPrice = assetPrice
-        , tradeAmount = amount
-        , tradeFee = fee
-        }
+trade tradeBaseAsset tradeBoughtAsset tradeAssetPrice tradeAmount tradeFee (Ledger entries) =
+  Ledger $ entries ++ [LedgerTrade $ Trade{..}]
+
+receiveDividend :: Asset -> Rational -> Ledger -> Ledger
+receiveDividend dividendAsset dividendAmount (Ledger entries) =
+  Ledger $ entries ++ [LedgerDividend $ Dividend{..}]
 
 assetsBalance :: Ledger -> Map Asset Rational
 assetsBalance (Ledger entries) = foldl' (flip updateBalances) Map.empty entries
  where
-  updateBalances (LedgerDeposit (Deposit{..})) = Map.alter (alterAdd depositAmount) depositAsset
-  updateBalances (LedgerWithdraw (Withdraw{..})) = Map.alter (alterSub withdrawAmount) withdrawAsset
+  updateBalances (LedgerDeposit (Deposit{..})) = addAmountToAsset depositAmount depositAsset
+  updateBalances (LedgerWithdraw (Withdraw{..})) = subAmountFromAsset withdrawAmount withdrawAsset
   updateBalances (LedgerTrade (Trade{..})) =
-    Map.alter (alterAdd tradeAmount) tradeBoughtAsset
-      . Map.alter (alterSub (tradeAmount * unAssetPrice tradeAssetPrice + tradeFee)) tradeBaseAsset
+    addAmountToAsset tradeAmount tradeBoughtAsset
+      . subAmountFromAsset (tradeAmount * unAssetPrice tradeAssetPrice + tradeFee) tradeBaseAsset
+  updateBalances (LedgerDividend (Dividend{..})) = addAmountToAsset dividendAmount dividendAsset
 
-  alterAdd = alterFn (+)
-  alterSub = alterFn (-)
+  addAmountToAsset :: Rational -> Asset -> Map Asset Rational -> Map Asset Rational
+  addAmountToAsset amount = Map.alter $ alterFn (+) amount
+
+  subAmountFromAsset :: Rational -> Asset -> Map Asset Rational -> Map Asset Rational
+  subAmountFromAsset amount = Map.alter $ alterFn (-) amount
+
   alterFn fn amount = Just . flip fn amount . fromMaybe 0

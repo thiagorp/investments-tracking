@@ -72,3 +72,15 @@ assetsBalanceSpec =
       let balance = assetsBalance ledger
 
       balance `shouldBe` Map.fromList [(usd, 490), (btc, 1)]
+
+    it "adds dividends to the amount of its assets" $ do
+      let ledger =
+            startLedger
+              & deposit usd (AssetPrice 1) 1000
+              & deposit usd (AssetPrice 1) 5000
+              & trade usd btc (AssetPrice 500) 1 10
+              & receiveDividend btc 0.01
+
+      let balance = assetsBalance ledger
+
+      Map.lookup btc balance `shouldBe` Just 1.01

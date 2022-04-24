@@ -7,4 +7,4 @@ import Test.Hspec.Runner
 
 main :: IO ()
 main = do
-  hspecWith defaultConfig {configFormatter = Just progress} Spec.spec
+  hspecWith defaultConfig{configFormatter = Just progress} Spec.spec

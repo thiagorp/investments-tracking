@@ -4,14 +4,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
-    pre-commit-hooks.inputs.flake-utils.follows = "flake-utils";
   };
 
   outputs = {
     self,
     nixpkgs,
-    pre-commit-hooks,
     flake-utils,
   }: let
     utils = flake-utils.lib;
@@ -30,19 +27,7 @@
         utils.flattenTree
         {investments-tracking = hsPkgs.investments-tracking;};
 
-      checks = {
-        pre-commit-check = pre-commit-hooks.lib.${system}.run {
-          src = ./.;
-          hooks = {
-            alejandra.enable = true;
-            fourmolu.enable = true;
-            cabal-fmt.enable = true;
-          };
-        };
-      };
-
       devShell = hsPkgs.shellFor {
-        inherit (self.checks.${system}.pre-commit-check) shellHook;
         withHoogle = true;
         packages = p: [
           p.investments-tracking
