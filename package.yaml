@@ -1,0 +1,58 @@
+name: investments-tracking
+version: '0.0.0'
+
+dependencies:
+  - base >= 4.7 && < 5
+  - esqueleto
+  - persistent
+  - rio
+
+default-extensions:
+  - NoImplicitPrelude
+  - OverloadedStrings
+  - ImportQualifiedPost
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+
+library:
+  source-dirs: src
+  ghc-options:
+    - -Wall
+    - -fwarn-tabs
+    - -O2
+
+executables:
+  investments-tracking:
+    main: main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - investments-tracking
+
+tests:
+  investments-tracking-test:
+    when:
+      - condition: false
+        other-modules:
+          - Paths_investments-tracking
+          - Spec
+    main: Main.hs
+    source-dirs:
+      - test
+      - src
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - investments-tracking
+      - hspec
+      - hspec-core
