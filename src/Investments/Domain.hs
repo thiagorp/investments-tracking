@@ -102,20 +102,25 @@ startLedger :: Ledger
 startLedger = Ledger []
 
 deposit :: Asset -> AssetAmount -> Ledger -> Ledger
-deposit depositAsset depositAmount (Ledger entries) =
-  Ledger $ entries ++ [LedgerDeposit $ Deposit{..}]
+deposit depositAsset depositAmount =
+  addEntry $ LedgerDeposit Deposit{..}
 
 withdraw :: Asset -> Fee -> AssetAmount -> Ledger -> Ledger
-withdraw withdrawAsset withdrawFee withdrawAmount (Ledger entries) =
-  Ledger $ entries ++ [LedgerWithdraw $ Withdraw{..}]
+withdraw withdrawAsset withdrawFee withdrawAmount =
+  addEntry $ LedgerWithdraw Withdraw{..}
 
 trade :: SoldAsset -> BoughtAsset -> AssetPrice -> AssetAmount -> Fee -> Ledger -> Ledger
-trade (SoldAsset tradeSoldAsset) (BoughtAsset tradeBoughtAsset) tradeAssetPrice tradeAmount tradeFee (Ledger entries) =
-  Ledger $ entries ++ [LedgerTrade $ Trade{..}]
+trade (SoldAsset tradeSoldAsset) (BoughtAsset tradeBoughtAsset) tradeAssetPrice tradeAmount tradeFee =
+  addEntry $ LedgerTrade Trade{..}
 
 receiveDividend :: Asset -> AssetAmount -> Ledger -> Ledger
-receiveDividend dividendAsset dividendAmount (Ledger entries) =
-  Ledger $ entries ++ [LedgerDividend $ Dividend{..}]
+receiveDividend dividendAsset dividendAmount =
+  addEntry $ LedgerDividend Dividend{..}
+
+addEntry :: LedgerEntry -> Ledger -> Ledger
+addEntry entry (Ledger entries) = Ledger $ entry : entries
+
+-- Queries
 
 assetsBalance :: Ledger -> Map Asset Rational
 assetsBalance (Ledger entries) = foldl' (flip updateBalances) Map.empty entries
