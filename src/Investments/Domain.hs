@@ -2,6 +2,7 @@
 
 module Investments.Domain (
   Asset (..),
+  LedgerValueResponse (..),
   -- Actions
   startLedger,
   deposit,
@@ -10,6 +11,7 @@ module Investments.Domain (
   receiveDividend,
   -- Query
   assetsBalance,
+  ledgerValue,
   -- Util
   amount,
   bought,
@@ -20,12 +22,13 @@ module Investments.Domain (
 
 import Import
 import RIO.Map qualified as Map
+import RIO.Set qualified as Set
 
 newtype Asset = Asset Text deriving (Show, Eq, Ord)
 newtype AssetPrice = AssetPrice Rational deriving (Show, Eq)
 newtype AssetAmount = AssetAmount Rational deriving (Show, Eq)
 newtype BoughtAsset = BoughtAsset Asset deriving (Show, Eq)
-newtype Fee = Fee Rational deriving (Show, Eq)
+data Fee = Fee Rational Asset deriving (Show, Eq)
 newtype SoldAsset = SoldAsset Asset deriving (Show, Eq)
 
 amount :: Rational -> AssetAmount
@@ -37,7 +40,7 @@ bought = BoughtAsset
 price :: Rational -> AssetPrice
 price = AssetPrice
 
-fee :: Rational -> Fee
+fee :: Rational -> Asset -> Fee
 fee = Fee
 
 sold :: Asset -> SoldAsset
@@ -49,8 +52,11 @@ unAssetAmount (AssetAmount assetAmount) = assetAmount
 unAssetPrice :: AssetPrice -> Rational
 unAssetPrice (AssetPrice p) = p
 
-unFee :: Fee -> Rational
-unFee (Fee f) = f
+feeAmount :: Fee -> Rational
+feeAmount (Fee f _) = f
+
+feeAsset :: Fee -> Asset
+feeAsset (Fee _ a) = a
 
 data Deposit = Deposit
   { depositAmount :: AssetAmount
@@ -61,7 +67,7 @@ data Deposit = Deposit
 data Withdraw = Withdraw
   { withdrawAmount :: AssetAmount
   , withdrawAsset :: Asset
-  , withdrawAssetPrice :: AssetPrice
+  , withdrawFee :: Fee
   }
   deriving (Show, Eq)
 
@@ -99,8 +105,8 @@ deposit :: Asset -> AssetAmount -> Ledger -> Ledger
 deposit depositAsset depositAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerDeposit $ Deposit{..}]
 
-withdraw :: Asset -> AssetPrice -> AssetAmount -> Ledger -> Ledger
-withdraw withdrawAsset withdrawAssetPrice withdrawAmount (Ledger entries) =
+withdraw :: Asset -> Fee -> AssetAmount -> Ledger -> Ledger
+withdraw withdrawAsset withdrawFee withdrawAmount (Ledger entries) =
   Ledger $ entries ++ [LedgerWithdraw $ Withdraw{..}]
 
 trade :: SoldAsset -> BoughtAsset -> AssetPrice -> AssetAmount -> Fee -> Ledger -> Ledger
@@ -115,10 +121,13 @@ assetsBalance :: Ledger -> Map Asset Rational
 assetsBalance (Ledger entries) = foldl' (flip updateBalances) Map.empty entries
  where
   updateBalances (LedgerDeposit (Deposit{..})) = addAmountToAsset (unAssetAmount depositAmount) depositAsset
-  updateBalances (LedgerWithdraw (Withdraw{..})) = subAmountFromAsset (unAssetAmount withdrawAmount) withdrawAsset
+  updateBalances (LedgerWithdraw (Withdraw{..})) =
+    subAmountFromAsset (unAssetAmount withdrawAmount) withdrawAsset
+      . subAmountFromAsset (feeAmount withdrawFee) (feeAsset withdrawFee)
   updateBalances (LedgerTrade (Trade{..})) =
     addAmountToAsset (unAssetAmount tradeAmount) tradeBoughtAsset
-      . subAmountFromAsset (unAssetAmount tradeAmount * unAssetPrice tradeAssetPrice + unFee tradeFee) tradeSoldAsset
+      . subAmountFromAsset (unAssetAmount tradeAmount * unAssetPrice tradeAssetPrice) tradeSoldAsset
+      . subAmountFromAsset (feeAmount tradeFee) (feeAsset tradeFee)
   updateBalances (LedgerDividend (Dividend{..})) = addAmountToAsset (unAssetAmount dividendAmount) dividendAsset
 
   addAmountToAsset :: Rational -> Asset -> Map Asset Rational -> Map Asset Rational
@@ -128,3 +137,28 @@ assetsBalance (Ledger entries) = foldl' (flip updateBalances) Map.empty entries
   subAmountFromAsset amountToSub = Map.alter $ alterFn (-) amountToSub
 
   alterFn fn amountToChange = Just . flip fn amountToChange . fromMaybe 0
+
+data LedgerValueResponse
+  = LedgerValueSuccess Rational
+  | ConversionRatesMissing (Set Asset)
+  deriving (Show, Eq)
+
+instance Semigroup LedgerValueResponse where
+  LedgerValueSuccess value1 <> LedgerValueSuccess value2 = LedgerValueSuccess $ value1 + value2
+  ConversionRatesMissing missing1 <> ConversionRatesMissing missing2 = ConversionRatesMissing $ missing1 <> missing2
+  ConversionRatesMissing missing <> _ = ConversionRatesMissing missing
+  _ <> ConversionRatesMissing missing = ConversionRatesMissing missing
+
+ledgerValue :: Asset -> Map Asset AssetPrice -> Ledger -> LedgerValueResponse
+ledgerValue baseAsset conversionRates =
+  foldl' (<>) (LedgerValueSuccess 0) . Map.elems . Map.mapWithKey convertAsset . assetsBalance
+ where
+  convertAsset :: Asset -> Rational -> LedgerValueResponse
+  convertAsset asset assetAmount =
+    if asset == baseAsset
+      then LedgerValueSuccess assetAmount
+      else case Map.lookup asset conversionRates of
+        Just conversionRate ->
+          LedgerValueSuccess $ assetAmount * unAssetPrice conversionRate
+        Nothing ->
+          ConversionRatesMissing $ Set.singleton asset
