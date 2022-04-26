@@ -3,6 +3,7 @@
 module Investments.Domain (
   Asset (..),
   LedgerValueResponse (..),
+  Ledger,
   -- Actions
   startLedger,
   deposit,
