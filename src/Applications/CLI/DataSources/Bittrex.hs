@@ -60,30 +60,30 @@ instance FromNamedRecord WithdrawalRow where
     withdrawalFee <- toRational @Double <$> row .: "Fee"
     pure WithdrawalRow{..}
 
-loadTradesData :: App (Either String (Vector TradeRow))
-loadTradesData = do
+loadTrades :: App (Either String (Vector TradeRow))
+loadTrades = do
   dir <- dataDir <$> appSettings
   fileContents <- readFileBinary (dir <> "/bittrex/trades.csv")
   pure $ snd <$> decodeByName (LBS.fromStrict fileContents)
 
-loadDepositsData :: App (Either String (Vector DepositRow))
-loadDepositsData = do
+loadDeposits :: App (Either String (Vector DepositRow))
+loadDeposits = do
   dir <- dataDir <$> appSettings
   fileContents <- readFileBinary (dir <> "/bittrex/deposits.csv")
   pure $ snd <$> decodeByName (LBS.fromStrict fileContents)
 
-loadWithdrawalsData :: App (Either String (Vector WithdrawalRow))
-loadWithdrawalsData = do
+loadWithdrawals :: App (Either String (Vector WithdrawalRow))
+loadWithdrawals = do
   dir <- dataDir <$> appSettings
   fileContents <- readFileBinary (dir <> "/bittrex/withdrawals.csv")
   pure $ snd <$> decodeByName (LBS.fromStrict fileContents)
 
 loadData :: App (Either String (Vector TradeRow, Vector DepositRow, Vector WithdrawalRow))
 loadData = do
-  tradesData <- loadTradesData
-  depositsData <- loadDepositsData
-  withdrawalsData <- loadWithdrawalsData
-  pure $ (,,) <$> tradesData <*> depositsData <*> withdrawalsData
+  trades <- loadTrades
+  deposits <- loadDeposits
+  withdrawals <- loadWithdrawals
+  pure $ (,,) <$> trades <*> deposits <*> withdrawals
 
 addTrade :: TradeRow -> Ledger -> Ledger
 addTrade TradeRow{..} =
