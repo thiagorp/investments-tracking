@@ -2,7 +2,7 @@
 
 module Applications.CLI.Main where
 
-import Applications.CLI.DataSources.Bittrex (readLedger)
+import Applications.CLI.DataSources.Binance (readLedger)
 import Applications.CLI.Import
 import Investments.Domain (Asset (Asset), assetsBalance)
 import RIO.Map qualified as Map
@@ -21,7 +21,7 @@ run :: App ()
 run = do
   ledger <- readLedger
   let balances = assetsBalance ledger
-  traverse_ printBalance (Map.toList balances)
+  traverse_ printBalance (Map.toList (Map.filter (>= 0.00000001) balances))
 
 main :: IO ()
 main = do
