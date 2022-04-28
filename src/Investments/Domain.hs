@@ -7,6 +7,7 @@ module Investments.Domain (
   -- Actions
   startLedger,
   deposit,
+  mergeLedgers,
   withdraw,
   trade,
   receiveDividend,
@@ -96,6 +97,9 @@ data LedgerEntry
 
 newtype Ledger = Ledger [LedgerEntry]
   deriving (Show, Eq)
+
+mergeLedgers :: Ledger -> Ledger -> Ledger
+mergeLedgers (Ledger entries1) (Ledger entries2) = Ledger $ entries1 <> entries2
 
 -- Data manipulation
 

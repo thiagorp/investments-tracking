@@ -2,15 +2,16 @@
 
 module Applications.CLI.Main where
 
-import Applications.CLI.DataSources.Binance (readLedger)
+import Applications.CLI.DataSources.Binance qualified as Binance
+import Applications.CLI.DataSources.Bittrex qualified as Bittrex
 import Applications.CLI.Import
-import Investments.Domain (Asset (Asset), assetsBalance)
+import Investments.Main (Asset (Asset), assetsBalance, mergeLedgers, startLedger)
 import RIO.Map qualified as Map
 import System.IO (print)
 
 printBalance :: (Asset, Rational) -> App ()
 printBalance (Asset assetName, rationalBalance) =
-  logInfo $ display assetName <> ": " <> display balance
+  logInfo $ display assetName <> ": " <> display (tshow balance)
  where
   balance =
     if rationalBalance >= 0.00000001
@@ -19,8 +20,13 @@ printBalance (Asset assetName, rationalBalance) =
 
 run :: App ()
 run = do
-  ledger <- readLedger
-  let balances = assetsBalance ledger
+  ledgers <-
+    sequence
+      [ Binance.readLedger
+      , Bittrex.readLedger
+      ]
+
+  let balances = assetsBalance $ foldl' mergeLedgers startLedger ledgers
   traverse_ printBalance (Map.toList (Map.filter (>= 0.00000001) balances))
 
 main :: IO ()

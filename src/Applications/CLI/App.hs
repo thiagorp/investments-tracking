@@ -24,10 +24,10 @@ runApp :: Settings -> App a -> IO a
 runApp settings (App m) = do
   logOptions' <- logOptionsHandle stdout True
   let logOptions =
-        setLogUseLoc True logOptions'
+        setLogUseLoc False logOptions'
           & setLogMinLevel LevelDebug
           & setLogVerboseFormat True
-          & setLogTerminal True
+          & setLogTerminal False
           & setLogUseTime True
           & setLogUseColor True
   withLogFunc logOptions $ \logFunc -> do
